@@ -1,25 +1,35 @@
+import csv
+
+import joblib
 import numpy as np
-import tensorflow as tf
-from keras import layers, models
+import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import classification_report, accuracy_score
 
-
-# Example data: list of shapes with their x,y coordinates
-shapes = [
-    np.array([[0, 0], [1, 0], [0.5, 0.866]], dtype=np.float64),  # Triangle
-    np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.float64), # Square
-    np.array([[0, 1], [0.951, 0.309], [0.588, -0.809], [-0.588, -0.809], [-0.951, 0.309]], dtype=np.float64) # Pentagon
-]
-
-# Labels for the shapes (e.g., 0 for Triangle, 1 for Square, 2 for Pentagon)
-labels = np.array([0, 1, 2])
+from lidarUtills import measure_to_x_y
 
 # Normalizing and padding the shapes
 def preprocess_shapes(shapes):
-    max_length = max(len(shape) for shape in shapes)
+    x_y_shapes = []
+    for shape in shapes:
+        if len(shape) == 0:
+            continue
+        x_y_shape = []
+        for measure in shape:
+            measure = measure[1:-1].split(",")
+            angle = int(float(measure[0]))
+            distance = float(measure[1])
+
+            x_y_shape.append(measure_to_x_y(angle, distance))
+        x_y_shapes.append(x_y_shape)
+
+    max_length = max(len(shape) for shape in x_y_shapes)
+    print(max_length)
     processed_shapes = []
 
-    for shape in shapes:
+    for shape in x_y_shapes:
         # Normalization (example: scale between 0 and 1)
         norm_shape = shape - np.min(shape, axis=0)
         norm_shape /= np.max(norm_shape, axis=0)
@@ -32,4 +42,46 @@ def preprocess_shapes(shapes):
 
     return np.array(processed_shapes)
 
-preprocessed_shapes = preprocess_shapes(shapes)
+# Function to flatten the shapes
+def flatten_shapes(shapes):
+    return np.array([shape.flatten() for shape in shapes])
+
+X = []
+Y = []
+with open('trainData/raw_data.csv', 'r') as file:
+    csvreader = csv.reader(file)
+    for row in csvreader:
+        X.append(row[1:])
+        Y.append(row[0])
+
+# Preprocess the shapes
+X = preprocess_shapes(X)
+
+# Flatten the shapes for scaling
+X_flattened = flatten_shapes(X)
+
+# Split the dataset into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X_flattened, Y, test_size=0.3, random_state=42)
+
+# Standardize features by removing the mean and scaling to unit variance
+scaler = StandardScaler()
+scaler.fit(X_train)
+
+X_train = scaler.transform(X_train)
+X_test = scaler.transform(X_test)
+
+# Initialize KNN classifier with, say, 3 neighbors
+knn = KNeighborsClassifier(n_neighbors=3)
+
+# Train the classifier
+knn.fit(X_train, y_train)
+
+# Make predictions
+predictions = knn.predict(X_test)
+
+# Evaluate the classifier
+print("Accuracy:", accuracy_score(y_test, predictions))
+print("\nClassification Report:\n", classification_report(y_test, predictions))
+
+joblib.dump(knn, 'knn_model.pkl')
+joblib.dump(scaler, 'scaler.pkl')

@@ -1,5 +1,7 @@
 import pygame
-from mappedData import room, persons
+
+import mappedData
+from fall_classifier import situation
 
 from lidarUtills import measure_to_x_y
 
@@ -44,12 +46,12 @@ class PygamePlotter:
 
     def draw_room(self):
         arr = []
-        for angle, dist in sorted(room.items()):
+        for angle, dist in sorted(mappedData.room.items()):
             x, y = self.measure_to_x_y(angle, dist)
             arr.append((x, y))
-            pygame.draw.circle(self.screen, "red", (int(x), int(y)), self.radius)
+            pygame.draw.circle(self.screen, "grey", (int(x), int(y)), self.radius)
         if len(arr) > 0:
-            pygame.draw.lines(self.screen, "red", True, arr)
+            pygame.draw.lines(self.screen, "grey", True, arr)
             # print(str(min(arr)) + " " + str(max(arr)))
 
     def update_min_max(self, x, y):
@@ -63,20 +65,26 @@ class PygamePlotter:
             self.persons_max[1] = y
 
     def draw_persons(self):
-        print(persons)
-        person_items = persons.items()
+        person_items = mappedData.persons.items()
         if len(person_items) > 0:
             firstItem = list(person_items)[0]
             firstItem_x_y = self.measure_to_x_y(firstItem[0], firstItem[1])
             self.persons_min = [firstItem_x_y[0], firstItem_x_y[1]]
             self.persons_max = [firstItem_x_y[0], firstItem_x_y[1]]
-            for angle, dist in persons.items():
+            for angle, dist in person_items:
                 x, y = self.measure_to_x_y(angle, dist)
                 self.update_min_max(x, y)
                 pygame.draw.circle(self.screen, "blue", (int(x), int(y)), 4)
-            pygame.draw.rect(self.screen, "green", (
-                self.persons_min[0], self.persons_min[1], self.persons_max[0] - self.persons_min[0],
-                self.persons_max[1] - self.persons_min[1]), 2)
+
+            rect_padding = 15
+            rect_color = "green"
+            if mappedData.person_state == situation.FALL:
+                rect_color = "red"
+            print(mappedData.person_state)
+            pygame.draw.rect(self.screen, rect_color, (
+                self.persons_min[0] - rect_padding, self.persons_min[1] - rect_padding,
+                self.persons_max[0] - self.persons_min[0] + rect_padding * 2,
+                self.persons_max[1] - self.persons_min[1] + rect_padding * 2), 2)
 
     def measure_to_x_y(self, angle, dist):
         x, y = measure_to_x_y(angle, dist)
