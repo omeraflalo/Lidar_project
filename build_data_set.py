@@ -1,20 +1,20 @@
 from csv import writer
 
 import mappedData
-from fall_classifier import situation
+from fall_classifier import Situation
 from lidarUtills import measure_to_x_y
 
 
 def on_key_press(key):
     match key.name:
         case 's':
-            add_to_csv(situation.STAND)
+            add_to_csv(Situation.STAND)
         case 'f':
-            add_to_csv(situation.FALL)
+            add_to_csv(Situation.FALL)
         case '=':
-            add_to_csv(situation.STAND)
+            add_to_csv(Situation.STAND)
         case '-':
-            add_to_csv(situation.FALL)
+            add_to_csv(Situation.FALL)
 
 
 index = 0

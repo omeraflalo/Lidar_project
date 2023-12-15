@@ -1,13 +1,14 @@
 import pygame
 
 import mappedData
-from fall_classifier import situation
+from fall_classifier import Situation
 
 
 class PygamePlotter:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((1000, 600))
+        self.screen_size = (1000, 600)
+        self.screen = pygame.display.set_mode(self.screen_size)
         pygame.display.set_caption('Room Plotter')
         self.clock = pygame.time.Clock()
         self.radius = 2
@@ -34,15 +35,32 @@ class PygamePlotter:
 
     def draw(self):
         self.screen.fill((0, 0, 0))
-        self.draw_room()
+        if len(mappedData.room) > 0:
+            sorted_room = sorted(mappedData.room.items())
+            self.update_correction(sorted_room)
+            self.draw_room(sorted_room)
         self.draw_persons()
 
     def on_exit(self, exit_call):
         self._exit_call = exit_call
 
-    def draw_room(self):
+    def update_correction(self, sorted_room):
+        x_points = [x for angle, (distance, (x, y)) in sorted_room]
+        y_points = [y for angle, (distance, (x, y)) in sorted_room]
+
+        max_x = max(x_points)
+        max_y = max(y_points)
+        min_x = min(x_points)
+        min_y = min(y_points)
+
+        self.x_correction = -min_x
+        self.y_correction = -min_y
+
+        self.zoom = min(self.screen_size[1] / (max_x - min_x), self.screen_size[0] / max_y - min_y)
+
+    def draw_room(self, sorted_room):
         arr = []
-        for angle, (distance, coordinates) in sorted(mappedData.room.items()):
+        for angle, (distance, coordinates) in sorted_room:
             x, y = self.measure_to_x_y(coordinates)
             arr.append((x, y))
             pygame.draw.circle(self.screen, "grey", (int(x), int(y)), self.radius)
@@ -51,23 +69,15 @@ class PygamePlotter:
             # print(str(min(arr)) + " " + str(max(arr)))
 
     def update_min_max(self, x, y, min_max):
-        if x < min_max[0]:
-            min_max[0] = x
-        if y < min_max[1]:
-            min_max[1] = y
-        if x > min_max[2]:
-            min_max[2] = x
-        if y > min_max[3]:
-            min_max[3] = y
+        min_max[0] = min(x, min_max[0])
+        min_max[1] = min(y, min_max[1])
+        min_max[2] = max(x, min_max[2])
+        min_max[3] = max(y, min_max[3])
         return min_max
 
     def draw_persons(self):
         for person in mappedData.persons:
-            # person_items = person[1]
-            # if len(person_items) > 0:
-                # angle, (first_distance, first_coordinates) = list(person_items)[0]
-            firstItem_x_y = self.measure_to_x_y(person[1][0])
-            min_max = [firstItem_x_y[0], firstItem_x_y[1], firstItem_x_y[0], firstItem_x_y[1]]
+            min_max = [float('inf'), float('inf'), float('-inf'), float('-inf')]
 
             for coordinates in person[1]:
                 x, y = self.measure_to_x_y(coordinates)
@@ -76,7 +86,7 @@ class PygamePlotter:
 
             rect_padding = 15
             rect_color = "green"
-            if person[0] == situation.FALL:
+            if person[0] == Situation.FALL:
                 rect_color = "red"
             pygame.draw.rect(self.screen, rect_color, (
                 min_max[0] - rect_padding, min_max[1] - rect_padding,
@@ -85,4 +95,4 @@ class PygamePlotter:
 
     def measure_to_x_y(self, coordinates):
         x, y = coordinates
-        return x * self.zoom + self.x_correction, y * self.zoom + self.y_correction
+        return (x + self.x_correction) * self.zoom, (y + self.y_correction) * self.zoom

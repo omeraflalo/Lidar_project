@@ -2,12 +2,9 @@ from enum import Enum
 
 import joblib
 import numpy as np
-from sklearn.neighbors import KNeighborsClassifier
-
-from lidarUtills import measure_to_x_y
 
 
-class situation(Enum):
+class Situation(Enum):
     STAND = "Stand"
     FALL = "Fall"
 
@@ -41,8 +38,8 @@ def _flatten_shapes(shape):
 
 
 def classify_obj(person_shape):
-    pro = _preprocess_shapes(person_shape)
-    flat = _flatten_shapes(pro)
+    pre = _preprocess_shapes(person_shape)
+    flat = _flatten_shapes(pre)
 
     # Reshape for a single sample
     flat = flat.reshape(1, -1)
@@ -55,14 +52,14 @@ def classify_obj(person_shape):
     probabilities = classifier.predict_proba(flat)[0]
 
     # Identify the index of the "Fall" class
-    fall_index = list(classifier.classes_).index(situation.FALL.value)
+    fall_index = list(classifier.classes_).index(Situation.FALL.value)
     fall_probability = probabilities[fall_index]
 
     # Check if the probability for "Fall" is above the threshold
     if fall_probability >= 0.7:
-        return situation.FALL
+        return Situation.FALL
     else:
-        return situation.STAND
+        return Situation.STAND
 
 
 version = "2"
