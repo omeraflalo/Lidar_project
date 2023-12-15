@@ -13,7 +13,7 @@ class situation(Enum):
 
 
 def _preprocess_shapes(shape):
-    x_y_shape = [coordinates for angle, (distance, coordinates) in shape.items()]
+    x_y_shape = shape
 
     max_length = 104  # TODO: load from model. version 1 = 99
 
@@ -52,10 +52,10 @@ def classify_obj(person_shape):
 
     # return knn.predict(flat)
     # Get probability estimates for each class
-    probabilities = knn.predict_proba(flat)[0]
+    probabilities = classifier.predict_proba(flat)[0]
 
     # Identify the index of the "Fall" class
-    fall_index = list(knn.classes_).index(situation.FALL.value)
+    fall_index = list(classifier.classes_).index(situation.FALL.value)
     fall_probability = probabilities[fall_index]
 
     # Check if the probability for "Fall" is above the threshold
@@ -66,5 +66,6 @@ def classify_obj(person_shape):
 
 
 version = "2"
+classifier_name = "extra_trees"
 scaler = joblib.load('models/version ' + version + '/scaler.pkl')
-knn: KNeighborsClassifier = joblib.load('models/version ' + version + '/knn_model.pkl')
+classifier = joblib.load('models/version ' + version + '/' + classifier_name + '_model.pkl')

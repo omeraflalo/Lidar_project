@@ -3,8 +3,6 @@ import pygame
 import mappedData
 from fall_classifier import situation
 
-from lidarUtills import measure_to_x_y
-
 
 class PygamePlotter:
     def __init__(self):
@@ -12,8 +10,6 @@ class PygamePlotter:
         self.screen = pygame.display.set_mode((1000, 600))
         pygame.display.set_caption('Room Plotter')
         self.clock = pygame.time.Clock()
-        self.persons_max = None
-        self.persons_min = None
         self.radius = 2
         self.zoom = 1 / 15
         self.x_correction = 400
@@ -54,36 +50,38 @@ class PygamePlotter:
             pygame.draw.lines(self.screen, "grey", True, arr)
             # print(str(min(arr)) + " " + str(max(arr)))
 
-    def update_min_max(self, x, y):
-        if x < self.persons_min[0]:
-            self.persons_min[0] = x
-        if y < self.persons_min[1]:
-            self.persons_min[1] = y
-        if x > self.persons_max[0]:
-            self.persons_max[0] = x
-        if y > self.persons_max[1]:
-            self.persons_max[1] = y
+    def update_min_max(self, x, y, min_max):
+        if x < min_max[0]:
+            min_max[0] = x
+        if y < min_max[1]:
+            min_max[1] = y
+        if x > min_max[2]:
+            min_max[2] = x
+        if y > min_max[3]:
+            min_max[3] = y
+        return min_max
 
     def draw_persons(self):
-        person_items = mappedData.persons.items()
-        if len(person_items) > 0:
-            angle, (first_distance, first_coordinates) = list(person_items)[0]
-            firstItem_x_y = self.measure_to_x_y(first_coordinates)
-            self.persons_min = [firstItem_x_y[0], firstItem_x_y[1]]
-            self.persons_max = [firstItem_x_y[0], firstItem_x_y[1]]
-            for angle, (distance, coordinates) in person_items:
+        for person in mappedData.persons:
+            # person_items = person[1]
+            # if len(person_items) > 0:
+                # angle, (first_distance, first_coordinates) = list(person_items)[0]
+            firstItem_x_y = self.measure_to_x_y(person[1][0])
+            min_max = [firstItem_x_y[0], firstItem_x_y[1], firstItem_x_y[0], firstItem_x_y[1]]
+
+            for coordinates in person[1]:
                 x, y = self.measure_to_x_y(coordinates)
-                self.update_min_max(x, y)
+                min_max = self.update_min_max(x, y, min_max)
                 pygame.draw.circle(self.screen, "blue", (int(x), int(y)), 4)
 
             rect_padding = 15
             rect_color = "green"
-            if mappedData.person_state == situation.FALL:  # TODO: fix enum
+            if person[0] == situation.FALL:
                 rect_color = "red"
             pygame.draw.rect(self.screen, rect_color, (
-                self.persons_min[0] - rect_padding, self.persons_min[1] - rect_padding,
-                self.persons_max[0] - self.persons_min[0] + rect_padding * 2,
-                self.persons_max[1] - self.persons_min[1] + rect_padding * 2), 2)
+                min_max[0] - rect_padding, min_max[1] - rect_padding,
+                min_max[2] - min_max[0] + rect_padding * 2,
+                min_max[3] - min_max[1] + rect_padding * 2), 2)
 
     def measure_to_x_y(self, coordinates):
         x, y = coordinates

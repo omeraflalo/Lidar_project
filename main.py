@@ -3,7 +3,9 @@ import threading
 
 import joblib
 import keyboard
+import numpy as np
 from rplidar import RPLidar
+from sklearn.cluster import DBSCAN
 
 import mappedData
 from fall_classifier import classify_obj
@@ -37,7 +39,7 @@ def initialize_room(deg_amount=260):
     print("Room initialized")
 
 
-def run():
+def run(dbscan):
     tolerance = 400
     room_polygon = Polygon(coordinates for angle, (distance, coordinates) in sorted(room.items()))
 
@@ -65,12 +67,21 @@ def run():
             #     print(distance_to_room)
             # else:
             #     room[angle] = distance
-        mappedData.persons = person_in_scan
-        if len(mappedData.persons) > 0:
-            mappedData.person_state = classify_obj(mappedData.persons)
-            # print(mappedData.person_state)
-        else:
-            mappedData.person_state = None
+
+        classified_persons = []
+        if len(person_in_scan) > 0:
+            arr = np.array([coordinates for angle, (distance, coordinates) in person_in_scan.items()])
+            clusters = dbscan.fit_predict(arr)
+            persons_split = {}
+            for person_index, cluster in enumerate(clusters):
+                if cluster not in persons_split:
+                    persons_split[cluster] = []
+                persons_split[cluster].append(arr[person_index])
+
+            for cluster, person in persons_split.items():
+                classified_persons.append((classify_obj(person), person))
+
+        mappedData.persons = classified_persons
 
 
 def _exit():
@@ -81,16 +92,18 @@ def _exit():
 
 def main():
     try:
+        # `eps` is the maximum distance between two samples for them to be considered in the same neighborhood
+        dbscan = DBSCAN(eps=550, min_samples=1)
         initialize_room()
-        run()
+        run(dbscan)
     except KeyboardInterrupt:
         _exit()
 
 
 try:
     keyboard.on_press(build_data_set.on_key_press)
-    plotter = PygamePlotter()
     threading.Thread(target=main).start()
+    plotter = PygamePlotter()
     plotter.on_exit(_exit)
     plotter.run()
 except:

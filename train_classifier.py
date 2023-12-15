@@ -1,12 +1,18 @@
 import csv
-
-import joblib
 import numpy as np
-import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier, \
+    ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.neural_network import MLPClassifier
+import joblib
 
 
 # Normalizing and padding the shapes
@@ -66,19 +72,36 @@ scaler.fit(X_train)
 
 X_train = scaler.transform(X_train)
 X_test = scaler.transform(X_test)
+# Classifier models to be evaluated
+classifiers = {
+    "KNN": KNeighborsClassifier(n_neighbors=3),
+    "SVM": SVC(),
+    "Random Forest": RandomForestClassifier(),
+    "Logistic Regression": LogisticRegression(),
+    "Decision Tree": DecisionTreeClassifier(),
+    "Naive Bayes": GaussianNB(),
+    "Gradient Boosting": GradientBoostingClassifier(),
+    "AdaBoost": AdaBoostClassifier(),
+    "Extra Trees": ExtraTreesClassifier(),
+    "Linear Discriminant Analysis": LinearDiscriminantAnalysis(),
+    "Quadratic Discriminant Analysis": QuadraticDiscriminantAnalysis(),
+    "MLP Classifier": MLPClassifier()
+}
 
-# Initialize KNN classifier with, say, 3 neighbors
-knn = KNeighborsClassifier(n_neighbors=3)
+best_model = None
+# Training and evaluating each classifier
+for name, clf in classifiers.items():
+    clf.fit(X_train, y_train)  # Train the classifier
+    predictions = clf.predict(X_test)  # Make predictions
+    accuracy = accuracy_score(y_test, predictions)
+    print(f"\n{name} Classifier")
+    print("Accuracy:", accuracy)
+    print("\nClassification Report:\n", classification_report(y_test, predictions))
+    joblib.dump(clf, f'models/version {version}/{name.lower().replace(" ", "_")}_model.pkl')
 
-# Train the classifier
-knn.fit(X_train, y_train)
+    # Determining the best model
+    if best_model is None or accuracy > best_model[0]:
+        best_model = [accuracy, name]
 
-# Make predictions
-predictions = knn.predict(X_test)
-
-# Evaluate the classifier
-print("Accuracy:", accuracy_score(y_test, predictions))
-print("\nClassification Report:\n", classification_report(y_test, predictions))
-#
-joblib.dump(knn, 'models/version ' + version + '/knn_model.pkl')
-joblib.dump(scaler, 'models/version ' + version + '/scaler.pkl')
+print(f"\nBest Model: {best_model[1]} Classifier with an Accuracy of {best_model[0]}")
+joblib.dump(scaler, f'models/version {version}/scaler.pkl')
