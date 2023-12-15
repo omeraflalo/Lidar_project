@@ -8,31 +8,24 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import classification_report, accuracy_score
 
-from lidarUtills import measure_to_x_y
 
 # Normalizing and padding the shapes
 def preprocess_shapes(shapes):
-    x_y_shapes = []
-    for shape in shapes:
-        if len(shape) == 0:
-            continue
-        x_y_shape = []
-        for measure in shape:
-            measure = measure[1:-1].split(",")
-            angle = int(float(measure[0]))
-            distance = float(measure[1])
-
-            x_y_shape.append(measure_to_x_y(angle, distance))
-        x_y_shapes.append(x_y_shape)
+    x_y_shapes = [np.array([tuple(map(float, measure[1:-1].split(","))) for measure in shape]) for shape in shapes]
 
     max_length = max(len(shape) for shape in x_y_shapes)
     print(max_length)
     processed_shapes = []
 
     for shape in x_y_shapes:
-        # Normalization (example: scale between 0 and 1)
-        norm_shape = shape - np.min(shape, axis=0)
-        norm_shape /= np.max(norm_shape, axis=0)
+        # Normalization
+        min_val = np.min(shape, axis=0)
+        max_val = np.max(shape, axis=0)
+        norm_shape = shape - min_val
+        if np.any(max_val != 0):  # Check if max value is not zero to avoid division by zero
+            norm_shape /= max_val
+        else:
+            norm_shape = np.zeros_like(shape)  # or handle it differently
 
         # Padding
         pad_length = max_length - len(norm_shape)
@@ -42,13 +35,17 @@ def preprocess_shapes(shapes):
 
     return np.array(processed_shapes)
 
+
 # Function to flatten the shapes
 def flatten_shapes(shapes):
     return np.array([shape.flatten() for shape in shapes])
 
+
+version = "2"
+
 X = []
 Y = []
-with open('trainData/raw_data.csv', 'r') as file:
+with open('models/version ' + version + '/raw_data.csv', 'r') as file:
     csvreader = csv.reader(file)
     for row in csvreader:
         X.append(row[1:])
@@ -82,6 +79,6 @@ predictions = knn.predict(X_test)
 # Evaluate the classifier
 print("Accuracy:", accuracy_score(y_test, predictions))
 print("\nClassification Report:\n", classification_report(y_test, predictions))
-
-joblib.dump(knn, 'knn_model.pkl')
-joblib.dump(scaler, 'scaler.pkl')
+#
+joblib.dump(knn, 'models/version ' + version + '/knn_model.pkl')
+joblib.dump(scaler, 'models/version ' + version + '/scaler.pkl')

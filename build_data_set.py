@@ -1,13 +1,8 @@
-from enum import Enum
-
 from csv import writer
-
-import keyboard
 
 import mappedData
 from fall_classifier import situation
 from lidarUtills import measure_to_x_y
-
 
 
 def on_key_press(key):
@@ -30,11 +25,11 @@ def add_to_csv(classification):
         return
 
     shape = sorted(mappedData.persons.items())
-    record = [classification]
-    for angle, distance in shape:
+    record = [classification.value]
+    for angle, (distance, coordinates) in shape:
         record.append(measure_to_x_y(angle, distance))
 
-    with open('trainData/raw_data.csv', 'a') as data:
+    with open('models/version 2/raw_data.csv', 'a', newline='') as data:
         writer_object = writer(data)
         writer_object.writerow(record)
         data.close()

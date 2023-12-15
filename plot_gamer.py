@@ -9,14 +9,14 @@ from lidarUtills import measure_to_x_y
 class PygamePlotter:
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((600, 600))
+        self.screen = pygame.display.set_mode((1000, 600))
         pygame.display.set_caption('Room Plotter')
         self.clock = pygame.time.Clock()
         self.persons_max = None
         self.persons_min = None
         self.radius = 2
-        self.zoom = 1 / 10
-        self.x_correction = 300
+        self.zoom = 1 / 15
+        self.x_correction = 400
         self.y_correction = 300
         self.running = True
         self._exit_call = None
@@ -46,8 +46,8 @@ class PygamePlotter:
 
     def draw_room(self):
         arr = []
-        for angle, dist in sorted(mappedData.room.items()):
-            x, y = self.measure_to_x_y(angle, dist)
+        for angle, (distance, coordinates) in sorted(mappedData.room.items()):
+            x, y = self.measure_to_x_y(coordinates)
             arr.append((x, y))
             pygame.draw.circle(self.screen, "grey", (int(x), int(y)), self.radius)
         if len(arr) > 0:
@@ -67,25 +67,24 @@ class PygamePlotter:
     def draw_persons(self):
         person_items = mappedData.persons.items()
         if len(person_items) > 0:
-            firstItem = list(person_items)[0]
-            firstItem_x_y = self.measure_to_x_y(firstItem[0], firstItem[1])
+            angle, (first_distance, first_coordinates) = list(person_items)[0]
+            firstItem_x_y = self.measure_to_x_y(first_coordinates)
             self.persons_min = [firstItem_x_y[0], firstItem_x_y[1]]
             self.persons_max = [firstItem_x_y[0], firstItem_x_y[1]]
-            for angle, dist in person_items:
-                x, y = self.measure_to_x_y(angle, dist)
+            for angle, (distance, coordinates) in person_items:
+                x, y = self.measure_to_x_y(coordinates)
                 self.update_min_max(x, y)
                 pygame.draw.circle(self.screen, "blue", (int(x), int(y)), 4)
 
             rect_padding = 15
             rect_color = "green"
-            if mappedData.person_state == situation.FALL:
+            if mappedData.person_state == situation.FALL:  # TODO: fix enum
                 rect_color = "red"
-            print(mappedData.person_state)
             pygame.draw.rect(self.screen, rect_color, (
                 self.persons_min[0] - rect_padding, self.persons_min[1] - rect_padding,
                 self.persons_max[0] - self.persons_min[0] + rect_padding * 2,
                 self.persons_max[1] - self.persons_min[1] + rect_padding * 2), 2)
 
-    def measure_to_x_y(self, angle, dist):
-        x, y = measure_to_x_y(angle, dist)
+    def measure_to_x_y(self, coordinates):
+        x, y = coordinates
         return x * self.zoom + self.x_correction, y * self.zoom + self.y_correction
