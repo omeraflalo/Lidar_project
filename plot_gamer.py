@@ -1,7 +1,7 @@
 import pygame
 
 import mappedData
-from fall_classifier import Situation
+from fall_classifier import Situation, update_classification
 
 
 class PygamePlotter:
@@ -53,10 +53,13 @@ class PygamePlotter:
         min_x = min(x_points)
         min_y = min(y_points)
 
-        self.x_correction = -min_x
-        self.y_correction = -min_y
+        self.zoom = min(self.screen_size[0] / (max_x - min_x), self.screen_size[1] / (max_y - min_y))
 
-        self.zoom = min(self.screen_size[1] / (max_x - min_x), self.screen_size[0] / max_y - min_y)
+        self.x_correction = - min_x
+        self.y_correction = - min_y
+        # TODO: check why that's not working properly
+        # self.x_correction = (self.screen_size[0] - (max_x - min_x) * self.zoom) / 2
+        # self.y_correction = (self.screen_size[1] - (max_y - min_y) * self.zoom) / 2
 
     def draw_room(self, sorted_room):
         arr = []

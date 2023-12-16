@@ -1,8 +1,8 @@
+import json
 from csv import writer
 
 import mappedData
 from fall_classifier import Situation
-from lidarUtills import measure_to_x_y
 
 
 def on_key_press(key):
@@ -17,21 +17,22 @@ def on_key_press(key):
             add_to_csv(Situation.FALL)
 
 
-index = 0
+index = {
+    "i": 1
+}
 
 
 def add_to_csv(classification):
-    if len(mappedData.persons) <= 0:
+    if len(mappedData.persons) != 1:
+        print("need to be only 1 person in the room")
         return
-
-    shape = sorted(mappedData.persons.items())
-    record = [classification.value]
-    for angle, (distance, coordinates) in shape:
-        record.append(measure_to_x_y(angle, distance))
-
-    with open('models/version 2/raw_data.csv', 'a', newline='') as data:
-        writer_object = writer(data)
+    shape = mappedData.persons[0][1]
+    record = [classification.value, json.dumps([coord.tolist() for coord in shape])]
+    version = "3"
+    with open('models/version ' + version + '/raw_data.csv', 'a', newline='') as data:
+        writer_object = writer(data, delimiter=';')
         writer_object.writerow(record)
         data.close()
 
-    print(str(index) + ". " + str(classification) + " Record added")
+    print(str(index["i"]) + ". " + str(classification) + " Record added")
+    index["i"] += 1
