@@ -1,11 +1,6 @@
-import time
-from enum import Enum
-
-import joblib
 import numpy as np
-from sklearn.cluster import DBSCAN
-
-import mappedData
+import joblib
+from enum import Enum
 
 
 class Situation(Enum):
@@ -13,108 +8,71 @@ class Situation(Enum):
     FALL = "Fall"
 
 
-def _preprocess_shapes(shape):
-    max_length = 100  # TODO: load from model. version 1 = 99
-    if len(shape) > max_length:
-        shape = shape[:max_length]
-    x_y_shape = shape
+class DataPreprocessor:
+    def __init__(self, max_length=100):
+        self.max_length = max_length
 
-    # Convert to numpy array for processing
-    x_y_shape = np.array(x_y_shape)
+    def preprocess(self, shape):
+        shape = shape[:self.max_length] if len(shape) > self.max_length else shape
+        shape = np.array(shape)
+        shape = self._normalize(shape)
+        return self._pad(shape)
 
-    # Normalization
-    min_val = np.min(x_y_shape, axis=0)
-    max_val = np.max(x_y_shape, axis=0)
-    norm_shape = x_y_shape - min_val
-    if np.any(max_val != 0):  # Check if max value is not zero
-        norm_shape /= max_val
-    else:
-        norm_shape = np.zeros_like(x_y_shape)  # or handle it differently
+    def _normalize(self, shape):
+        min_val, max_val = np.min(shape, axis=0), np.max(shape, axis=0)
+        norm_shape = (shape - min_val) / max_val if np.any(max_val != 0) else np.zeros_like(shape)
+        return norm_shape
 
-    # Padding
-    pad_length = max_length - len(norm_shape)
-    padded_shape = np.pad(norm_shape, ((0, pad_length), (0, 0)), mode='constant')
-
-    return padded_shape
+    def _pad(self, shape):
+        pad_length = self.max_length - len(shape)
+        return np.pad(shape, ((0, pad_length), (0, 0)), mode='constant')
 
 
-def _flatten_shapes(shape):
-    return shape.flatten()
+class FallClassifier:
+    def __init__(self, model_path, scaler_path, threshold=0.75):
+        self.classifier = joblib.load(model_path)
+        self.scaler = joblib.load(scaler_path)
+        self.threshold = threshold
+
+    def classify(self, data):
+        scaled_data = self.scaler.transform(data.reshape(1, -1))
+        probabilities = self.classifier.predict_proba(scaled_data)[0]
+        stand_index = list(self.classifier.classes_).index(Situation.STAND.value)
+        fall_index = list(self.classifier.classes_).index(Situation.FALL.value)
+        stand_probability = probabilities[stand_index]
+        fall_probability = probabilities[fall_index]
+        return (Situation.FALL, fall_probability) if probabilities[fall_index] > self.threshold else (
+            Situation.STAND, stand_probability)
 
 
-def classify(person_shape):
-    pre = _preprocess_shapes(person_shape)
-    flat = _flatten_shapes(pre)
+class ClassificationUpdater:
+    def __init__(self, system_state, preprocessor, classifier, dbscan):
+        self.system_state = system_state
+        self.preprocessor = preprocessor
+        self.classifier = classifier
+        self.dbscan = dbscan
 
-    # Reshape for a single sample
-    flat = flat.reshape(1, -1)
+    def update_classification(self):
+        if not self.system_state.lidar_diff:
+            return
 
-    # Scale the test data
-    flat = scaler.transform(flat)
-    probabilities = classifier.predict_proba(flat)[0]
+        classified_persons = []
+        arr = np.array([coords for _, (_, coords) in self.system_state.lidar_diff.items()])
+        clusters = self.dbscan.fit_predict(arr)
+        persons_split = self._split_persons(arr, clusters)
 
-    # Identify the index of the "Fall" class
-    stand_index = list(classifier.classes_).index(Situation.STAND.value)
-    fall_index = list(classifier.classes_).index(Situation.FALL.value)
-    stand_probability = probabilities[stand_index]
-    fall_probability = probabilities[fall_index]
+        for _, person_shape in persons_split.items():
+            preprocessed_shape = self.preprocessor.preprocess(person_shape)
+            flat_shape = preprocessed_shape.flatten()
+            situation, probability = self.classifier.classify(flat_shape)
+            classified_persons.append((situation, person_shape, probability))
 
-    # Check if the probability for "Fall" is above the threshold
-    if fall_probability > 0.75:
-        return Situation.FALL, fall_probability
-    else:
-        return Situation.STAND, stand_probability
+        self.system_state.update_persons(classified_persons)
 
-
-def update_classification():
-    classified_persons = []
-    if len(mappedData.lidar_diff) > 0:
-        arr = np.array([coordinates for angle, (distance, coordinates) in mappedData.lidar_diff.items()])
-        clusters = dbscan.fit_predict(arr)
+    def _split_persons(self, arr, clusters):
         persons_split = {}
-        for person_index, cluster in enumerate(clusters):
+        for index, cluster in enumerate(clusters):
             if cluster not in persons_split:
                 persons_split[cluster] = []
-            persons_split[cluster].append(arr[person_index])
-
-        for cluster, person in persons_split.items():
-            situation, probability = classify(person)
-            classified_persons.append((situation, person, probability))
-
-    mappedData.persons = classified_persons
-
-
-mappedData.classify_fps = 0
-fps_history = []  # Store recent FPS values
-fps_history_size = 10  # Determine how many recent values to consider
-
-def classify_iteration(fps=25):
-    last_classify = None
-    interval = 1 / fps
-    while True:
-        start_time = time.time()
-
-        if last_classify != mappedData.lidar_diff:
-            last_classify = mappedData.lidar_diff
-            update_classification()
-
-        elapsed_time = time.time() - start_time
-        actual_fps = 1 / elapsed_time if elapsed_time > 0 else 0
-        fps_history.append(actual_fps)
-        if len(fps_history) > fps_history_size:
-            fps_history.pop(0)
-        average_fps = sum(fps_history) / len(fps_history)
-
-        mappedData.classify_fps = average_fps
-
-        time_to_wait = interval - elapsed_time
-        if time_to_wait > 0:
-            time.sleep(time_to_wait)
-
-
-version = "3"
-classifier_name = "extra_trees"
-scaler = joblib.load('models/version ' + version + '/scaler.pkl')
-classifier = joblib.load('models/version ' + version + '/' + classifier_name + '_model.pkl')
-# `eps` is the maximum distance between two samples for them to be considered in the same neighborhood
-dbscan = DBSCAN(eps=550, min_samples=1)
+            persons_split[cluster].append(arr[index])
+        return persons_split

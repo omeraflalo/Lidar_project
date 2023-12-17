@@ -1,38 +1,38 @@
 import json
 from csv import writer
-
-import mappedData
 from fall_classifier import Situation
 
 
-def on_key_press(key):
-    match key.name:
-        case 's':
-            add_to_csv(Situation.STAND)
-        case 'f':
-            add_to_csv(Situation.FALL)
-        case '=':
-            add_to_csv(Situation.STAND)
-        case '-':
-            add_to_csv(Situation.FALL)
+class DataSetBuilder:
+    def __init__(self, system_state, file_path, version="3"):
+        self.system_state = system_state
+        self.file_path = f'models/version {version}/raw_data.csv'
+        self.index = 1
+
+    def add_to_csv(self, classification):
+        if len(self.system_state.persons) != 1:
+            print("Need to be only 1 person in the room")
+            return
+
+        shape = self.system_state.persons[0][1]
+        record = [classification.value, json.dumps([coord.tolist() for coord in shape])]
+        self._write_record(record)
+        print(f"{self.index}. {classification} Record added")
+        self.index += 1
+
+    def _write_record(self, record):
+        with open(self.file_path, 'a', newline='') as data:
+            writer_object = writer(data, delimiter=';')
+            writer_object.writerow(record)
 
 
-index = {
-    "i": 1
-}
-
-
-def add_to_csv(classification):
-    if len(mappedData.persons) != 1:
-        print("need to be only 1 person in the room")
+def on_key_press(key, data_set_builder):
+    try:
+        key_name = key.name
+    except AttributeError:
         return
-    shape = mappedData.persons[0][1]
-    record = [classification.value, json.dumps([coord.tolist() for coord in shape])]
-    version = "3"
-    with open('models/version ' + version + '/raw_data.csv', 'a', newline='') as data:
-        writer_object = writer(data, delimiter=';')
-        writer_object.writerow(record)
-        data.close()
 
-    print(str(index["i"]) + ". " + str(classification) + " Record added")
-    index["i"] += 1
+    if key_name in ['s', '=']:
+        data_set_builder.add_to_csv(Situation.STAND)
+    elif key_name in ['f', '-']:
+        data_set_builder.add_to_csv(Situation.FALL)

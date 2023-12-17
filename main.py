@@ -1,80 +1,54 @@
 import sys
 import threading
 
-import joblib
-import keyboard
-import numpy as np
-from rplidar import RPLidar
+from system_state import SystemState
+from build_data_set import DataSetBuilder
+from lidar_device import LidarDevice
+from room_monitor import RoomMonitor
+from data_visualizer import DataVisualizer
+from event_handler import EventHandler
+from fall_classifier import DataPreprocessor, FallClassifier, ClassificationUpdater, Situation
 from sklearn.cluster import DBSCAN
 
-import mappedData
-from fall_classifier import classify, update_classification, classify_iteration
-from lidarUtills import measure_to_x_y
-from plot_gamer import PygamePlotter
-import build_data_set
-from mappedData import room
-from shapely.geometry import Point, Polygon
 
-lidar = None
+class Application:
+    def __init__(self):
+        self.system_state = SystemState()
+        self.lidar_device = LidarDevice('COM9', baudrate=256000)
+        preprocessor = DataPreprocessor(max_length=100)
 
-try:
-    lidar = RPLidar('COM9', baudrate=256000)
-except:
-    print("lidar does not connected")
-    exit()
-lidar._motor_speed = 600
+        models_path = "models/version 3/"
 
+        classifier = FallClassifier(model_path=models_path + 'random_forest_model.pkl',
+                                    scaler_path=models_path + 'scaler.pkl',
+                                    threshold=0.75)
+        dbscan = DBSCAN(eps=550, min_samples=1)
+        self.classification_updater = ClassificationUpdater(self.system_state, preprocessor, classifier, dbscan)
+        self.room_monitor = RoomMonitor(self.lidar_device, self.system_state, self.classification_updater)
+        self.data_visualizer = DataVisualizer(self.room_monitor, self.system_state)
+        self.data_set_builder = DataSetBuilder(self.system_state, file_path=models_path)
 
-def initialize_room(max_iteration=15):
-    lidar.iter_measures()
-    for i, scan in enumerate(lidar.iter_scans()):
-        for res, angle, distance in scan:
-            if res == 15:
-                room[round(angle)] = (distance, measure_to_x_y(angle, distance))
-        print(str(int((i / 15) * 100)) + "%")
-        if i >= max_iteration:
-            break
-    print("Room initialized")
+        # When setting up event handlers, pass this instance
+        self.event_handler = EventHandler(self.data_visualizer, self.data_set_builder)
 
+    def run(self):
+        try:
+            self.lidar_device.connect()
 
-def run():
-    tolerance = 250
-    room_polygon = Polygon(coordinates for angle, (distance, coordinates) in sorted(room.items()))
+            threading.Thread(target=self.room_monitor.run).start()
+            threading.Thread(target=self.event_handler.start_handling).start()
 
-    for i, scan in enumerate(lidar.iter_scans(scan_type='express', max_buf_meas=False)):
-        persons_in_scan = {}
-        for res, angle, distance in scan:
-            if res == 15:
-                coordinates = measure_to_x_y(angle, distance)
-                new_point = Point(coordinates)
-                distance_to_room = room_polygon.boundary.distance(new_point)
+            self.data_visualizer.start_visualization()
 
-                if room_polygon.contains(new_point) and distance_to_room > tolerance:
-                    persons_in_scan[angle] = (distance, coordinates)
-        mappedData.lidar_diff = persons_in_scan
+        except:
+            self.close()
+
+    def close(self):
+        self.lidar_device.disconnect()
+        self.data_visualizer.stop_visualization()
+        sys.exit(0)
 
 
-def _exit():
-    if lidar:
-        lidar.stop()
-        lidar.stop_motor()
-        lidar.disconnect()
-
-
-def main():
-    try:
-        initialize_room()
-        run()
-    except KeyboardInterrupt:
-        _exit()
-
-
-try:
-    keyboard.on_press(build_data_set.on_key_press)
-    threading.Thread(target=main).start()
-    threading.Thread(target=classify_iteration).start()
-    plotter = PygamePlotter()
-    plotter.on_exit(_exit)
-    plotter.run()
-except:
-    _exit()
+if __name__ == "__main__":
+    app = Application()
+    app.run()
