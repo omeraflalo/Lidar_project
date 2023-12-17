@@ -1,4 +1,5 @@
 import pygame
+import pygame.freetype
 
 import mappedData
 from fall_classifier import Situation, update_classification
@@ -40,6 +41,7 @@ class PygamePlotter:
             self.update_correction(sorted_room)
             self.draw_room(sorted_room)
         self.draw_persons()
+        self.draw_fps()
 
     def on_exit(self, exit_call):
         self._exit_call = exit_call
@@ -79,22 +81,34 @@ class PygamePlotter:
         return min_max
 
     def draw_persons(self):
+        font = pygame.freetype.SysFont("Arial", 20)  # Choose your font and size
         for person in mappedData.persons:
+            situation, person_coordinates, probability = person
             min_max = [float('inf'), float('inf'), float('-inf'), float('-inf')]
 
-            for coordinates in person[1]:
+            for coordinates in person_coordinates:
                 x, y = self.measure_to_x_y(coordinates)
                 min_max = self.update_min_max(x, y, min_max)
                 pygame.draw.circle(self.screen, "blue", (int(x), int(y)), 4)
 
             rect_padding = 15
-            rect_color = "green"
-            if person[0] == Situation.FALL:
-                rect_color = "red"
-            pygame.draw.rect(self.screen, rect_color, (
+            rect_color = "green" if situation == Situation.STAND else "red"
+            rect = pygame.Rect(
                 min_max[0] - rect_padding, min_max[1] - rect_padding,
                 min_max[2] - min_max[0] + rect_padding * 2,
-                min_max[3] - min_max[1] + rect_padding * 2), 2)
+                min_max[3] - min_max[1] + rect_padding * 2
+            )
+            pygame.draw.rect(self.screen, rect_color, rect, 2)
+
+            # Render the probability text
+            prob_text = f"{probability * 100:.0f}%"  # Format the probability to 2 decimal places
+            text_rect = rect.move(0, -20)  # Adjust the position as needed
+            font.render_to(self.screen, (text_rect.left, text_rect.top), prob_text, "white")
+
+    def draw_fps(self):
+        font = pygame.freetype.SysFont("Arial", 35)
+        fps_text = f"FPS: {mappedData.classify_fps:.8f}"
+        font.render_to(self.screen, (10, 10), fps_text, (255, 255, 255))  # Renders the text in white color
 
     def measure_to_x_y(self, coordinates):
         x, y = coordinates

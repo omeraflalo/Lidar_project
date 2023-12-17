@@ -51,22 +51,19 @@ def classify(person_shape):
 
     # Scale the test data
     flat = scaler.transform(flat)
+    probabilities = classifier.predict_proba(flat)[0]
 
-    if classifier.predict(flat) == Situation.FALL.value:
-        # Get probability estimates for each class
-        probabilities = classifier.predict_proba(flat)[0]
+    # Identify the index of the "Fall" class
+    stand_index = list(classifier.classes_).index(Situation.STAND.value)
+    fall_index = list(classifier.classes_).index(Situation.FALL.value)
+    stand_probability = probabilities[stand_index]
+    fall_probability = probabilities[fall_index]
 
-        # Identify the index of the "Fall" class
-        fall_index = list(classifier.classes_).index(Situation.FALL.value)
-        fall_probability = probabilities[fall_index]
-
-        # Check if the probability for "Fall" is above the threshold
-        if fall_probability > 0.75:
-            return Situation.FALL
-        else:
-            return Situation.STAND
+    # Check if the probability for "Fall" is above the threshold
+    if fall_probability > 0.75:
+        return Situation.FALL, fall_probability
     else:
-        return Situation.STAND
+        return Situation.STAND, stand_probability
 
 
 def update_classification():
@@ -81,13 +78,15 @@ def update_classification():
             persons_split[cluster].append(arr[person_index])
 
         for cluster, person in persons_split.items():
-            classified_persons.append((classify(person), person))
+            situation, probability = classify(person)
+            classified_persons.append((situation, person, probability))
 
-        # arr = np.array([coordinates for angle, (distance, coordinates) in mappedData.lidar_diff.items()])
-        #
-        # classified_persons.append((classify(arr), arr))
     mappedData.persons = classified_persons
 
+
+mappedData.classify_fps = 0
+fps_history = []  # Store recent FPS values
+fps_history_size = 10  # Determine how many recent values to consider
 
 def classify_iteration(fps=25):
     last_classify = None
@@ -100,6 +99,14 @@ def classify_iteration(fps=25):
             update_classification()
 
         elapsed_time = time.time() - start_time
+        actual_fps = 1 / elapsed_time if elapsed_time > 0 else 0
+        fps_history.append(actual_fps)
+        if len(fps_history) > fps_history_size:
+            fps_history.pop(0)
+        average_fps = sum(fps_history) / len(fps_history)
+
+        mappedData.classify_fps = average_fps
+
         time_to_wait = interval - elapsed_time
         if time_to_wait > 0:
             time.sleep(time_to_wait)

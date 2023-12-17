@@ -22,7 +22,7 @@ try:
 except:
     print("lidar does not connected")
     exit()
-lidar._motor_speed = 660
+lidar._motor_speed = 600
 
 
 def initialize_room(max_iteration=15):
@@ -41,7 +41,7 @@ def run():
     tolerance = 250
     room_polygon = Polygon(coordinates for angle, (distance, coordinates) in sorted(room.items()))
 
-    for i, scan in enumerate(lidar.iter_scans()):
+    for i, scan in enumerate(lidar.iter_scans(scan_type='express', max_buf_meas=False)):
         persons_in_scan = {}
         for res, angle, distance in scan:
             if res == 15:
