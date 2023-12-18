@@ -1,13 +1,14 @@
 import sys
 import threading
 
+from data_preprocessor import DataPreprocessor
 from system_state import SystemState
 from build_data_set import DataSetBuilder
 from lidar_device import LidarDevice
 from room_monitor import RoomMonitor
 from data_visualizer import DataVisualizer
 from event_handler import EventHandler
-from fall_classifier import DataPreprocessor, FallClassifier, ClassificationUpdater, Situation
+from fall_classifier import FallClassifier, ClassificationUpdater, Situation
 from sklearn.cluster import DBSCAN
 
 
@@ -35,12 +36,20 @@ class Application:
         try:
             self.lidar_device.connect()
 
-            threading.Thread(target=self.room_monitor.run).start()
+            threading.Thread(target=self.run_room_monitoring).start()
             threading.Thread(target=self.event_handler.start_handling).start()
 
             self.data_visualizer.start_visualization()
 
         except:
+            self.close()
+
+    def run_room_monitoring(self):
+        try:
+            self.room_monitor.initialize_room()
+            self.room_monitor.start_monitoring()
+        except:
+            print("Scan stopped.")
             self.close()
 
     def close(self):

@@ -4,6 +4,7 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 
 class ExcelFormatter:
     def format_and_save(self, data, file_path):
+        data = sorted(data, key=lambda x: x["Accuracy"], reverse=True)
         df = pd.DataFrame(data)
         writer = pd.ExcelWriter(file_path, engine='openpyxl')
 

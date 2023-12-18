@@ -1,3 +1,5 @@
+import threading
+
 import pygame
 import pygame.freetype
 from fall_classifier import Situation
@@ -17,6 +19,10 @@ class DataVisualizer:
         pygame.init()
         self.font = pygame.freetype.SysFont("Arial", 20)
         self.progress_font = pygame.freetype.SysFont("Arial", 30)
+        button_width, button_height = 100, 40
+        padding = 10  # Padding from the top and right edges
+        self.button_rect = pygame.Rect(self.screen_size[0] - button_width - padding, padding, button_width,
+                                       button_height)
 
         self.screen = pygame.display.set_mode(self.screen_size)
         pygame.display.set_caption('Room Plotter')
@@ -27,15 +33,12 @@ class DataVisualizer:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.stop_visualization()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.is_button_clicked(event.pos):
+                        self.show_initialization_progress = True
+                        threading.Thread(target=self.room_monitor.initialize_room).start()
 
-            self.screen.fill((0, 0, 0))
-            if self.room_monitor.initialization_progress < 100:
-                self.draw_initialization_progress()
-            else:
-                self.show_initialization_progress = False
-            self.draw_room()
-            self.draw_persons()
-            self.draw_fps()
+            self.draw()
 
             pygame.display.flip()
             self.clock.tick(25)
@@ -43,6 +46,18 @@ class DataVisualizer:
     def stop_visualization(self):
         self.running = False
         pygame.quit()
+
+    def draw(self):
+        self.screen.fill((0, 0, 0))
+        if self.room_monitor.initialization_progress < 100:
+            self.draw_initialization_progress()
+        else:
+            self.show_initialization_progress = False
+            self.draw_room()
+            self.draw_persons()
+        self.draw_fps()
+        self.draw_fps
+        self.draw_button()
 
     def draw_room(self):
         if not self.room_monitor.room_polygon:
@@ -100,3 +115,11 @@ class DataVisualizer:
         x = (self.screen_size[0] - text_width) // 2
         y = (self.screen_size[1] - text_height) // 2
         self.screen.blit(text_surface, (x, y))
+
+    def draw_button(self):
+        pygame.draw.rect(self.screen, (20, 100, 200), self.button_rect)
+        text_surface, _ = self.font.render("Reinitialize", (255, 255, 255))  # White text
+        self.screen.blit(text_surface, (self.button_rect.x + 10, self.button_rect.y + 10))
+
+    def is_button_clicked(self, pos):
+        return self.button_rect.collidepoint(pos)

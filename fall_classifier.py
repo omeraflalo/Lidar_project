@@ -8,26 +8,6 @@ class Situation(Enum):
     FALL = "Fall"
 
 
-class DataPreprocessor:
-    def __init__(self, max_length=100):
-        self.max_length = max_length
-
-    def preprocess(self, shape):
-        shape = shape[:self.max_length] if len(shape) > self.max_length else shape
-        shape = np.array(shape)
-        shape = self._normalize(shape)
-        return self._pad(shape)
-
-    def _normalize(self, shape):
-        min_val, max_val = np.min(shape, axis=0), np.max(shape, axis=0)
-        norm_shape = (shape - min_val) / max_val if np.any(max_val != 0) else np.zeros_like(shape)
-        return norm_shape
-
-    def _pad(self, shape):
-        pad_length = self.max_length - len(shape)
-        return np.pad(shape, ((0, pad_length), (0, 0)), mode='constant')
-
-
 class FallClassifier:
     def __init__(self, model_path, scaler_path, threshold=0.75):
         self.classifier = joblib.load(model_path)
@@ -54,6 +34,7 @@ class ClassificationUpdater:
 
     def update_classification(self):
         if not self.system_state.lidar_diff:
+            self.system_state.update_persons([])
             return
 
         classified_persons = []
@@ -62,9 +43,8 @@ class ClassificationUpdater:
         persons_split = self._split_persons(arr, clusters)
 
         for _, person_shape in persons_split.items():
-            preprocessed_shape = self.preprocessor.preprocess(person_shape)
-            flat_shape = preprocessed_shape.flatten()
-            situation, probability = self.classifier.classify(flat_shape)
+            preprocessed_shape = self.preprocessor.process_shape(person_shape)
+            situation, probability = self.classifier.classify(preprocessed_shape)
             classified_persons.append((situation, person_shape, probability))
 
         self.system_state.update_persons(classified_persons)

@@ -13,19 +13,14 @@ class RoomMonitor:
         self.tolerance = 250
         self.initialization_progress = 0
 
-    def run(self):
-        try:
-            self.initialize_room()
-            self.start_monitoring()
-        except:
-            print("Scan stopped.")
-
     def initialize_room(self, max_iteration=15):
         if not self.lidar_device.is_connected():
             print("LIDAR device is not connected. Cannot initialize room.")
             return
 
         print("Initializing room...")
+        self.initialization_progress = 0
+        self.system_state.room = {}
         self.lidar_device.lidar.iter_measures()  # Prepare the device for measurements
         for i, scan in enumerate(self.lidar_device.get_scans()):
             for res, angle, distance in scan:

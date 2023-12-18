@@ -19,7 +19,7 @@ class LidarDevice:
             self.connected = False
 
     def disconnect(self):
-        if self.lidar:
+        if self.lidar and self.connected:
             self.lidar.stop()
             self.lidar.stop_motor()
             self.lidar.disconnect()

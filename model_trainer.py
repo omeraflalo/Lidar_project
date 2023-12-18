@@ -11,6 +11,7 @@ class ModelTrainer:
         best_model = [0, '']
 
         for name, clf in self.classifiers.items():
+            print(f'Training {name} model')
             clf.fit(X_train, y_train)
             predictions = clf.predict(X_test)
 
