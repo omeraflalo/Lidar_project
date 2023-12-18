@@ -56,7 +56,6 @@ class DataVisualizer:
             self.draw_room()
             self.draw_persons()
         self.draw_fps()
-        self.draw_fps
         self.draw_button()
 
     def draw_room(self):
